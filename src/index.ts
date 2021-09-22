@@ -212,8 +212,8 @@ export default class XDraggable {
             width: 0,
             height: 0,
           });
-          if (dragId && this.eventFns.dragOut) {
-            this.eventFns.dragOut({
+          if (dragId && this.eventFns.drag) {
+            this.eventFns.drag({
               id: dragId,
               index: this.dragIndex,
             });
@@ -230,7 +230,7 @@ export default class XDraggable {
     }
   }
   // 外部事件监听
-  public on(eventName: 'dragOut', fn: (e: any) => void) {
+  public on(eventName: 'drag', fn: (e: any) => void) {
     this.eventFns[eventName] = fn;
   }
   // 检查池中元素位置 判断是否与其他有重合
