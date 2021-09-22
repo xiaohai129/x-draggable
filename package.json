@@ -1,6 +1,6 @@
 {
   "name": "xh-draggable",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "元素拖动、大小、排序",
   "main": "dist/index.js",
   "types": "types/index.d.ts",

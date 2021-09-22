@@ -151,15 +151,7 @@ export default class XDraggable {
     const $handle = document.createElement('div');
     $handle.classList.add('x-draggable-handle');
     $handle.addEventListener('mousedown', (e) => {
-      if (!this.$mask) {
-        return;
-      }
-      this.$mask.style.display = 'block';
-      this.$mask.className = this.options.direction!;
-
-      this.updateElementInfo(e);
       this.isResize = true;
-      e.stopPropagation();
     });
     this.el.classList.add('x-draggable-size-wrap', this.options.direction);
     this.el.appendChild($handle);
@@ -168,65 +160,83 @@ export default class XDraggable {
   // 用户移动事件统一处理
   private handleUserMove(e: MouseEvent) {
     if (this.isResize) {
-      // 拖动改变大小
-      if (e.type === 'mouseup') {
-        this.isResize = false;
-        this.computeElementSize(e, true);
-        this.$mask!.style.display = 'none';
-        this.$mask!.className = '';
-      } else if (e.type === 'mousemove') {
-        this.computeElementSize(e);
-      }
+      this.handleResize(e);
     } else {
-      // 拖动元素
-      if (e.type === 'mousedown') {
-        let target = this.el;
-        if (this.options.isChildren) {
-          target = e.target as HTMLElement;
-        }
-        // 记录点击时信息
-        this.$current = target.cloneNode(true) as HTMLElement;
-        this.$current.classList.add('x-draggable-clone');
-        this.$mask!.style.display = 'block';
-        if (this.options.isSort) {
-          this.dragIndex = parseInt(this.$current.style.order || '-1');
-        } else {
-          this.dragIndex = parseInt(this.$current.getAttribute('drag-index') || '-1');
-        }
-        document.body.appendChild(this.$current);
-        this.updateElementInfo(e);
+      this.handleDraggable(e);
+    }
+  }
+  // 处理改变大小
+  private handleResize(e: MouseEvent) {    
+    if (e.type === 'mouseup') {
+      this.computeElementSize(e, true);
+      this.$mask!.style.display = 'none';
+      this.$mask!.className = '';
+      this.isResize = false;
+    } else if (e.type === 'mousemove') {
+      this.computeElementSize(e);
+    } else if (e.type === 'mousedown') {
+      if (!this.$mask) {
+        return;
       }
-      const position = this.computeElementPosition(e);
-      this.reanderCurrentStyle({
-        top: position.top + 'px',
-        left: position.left + 'px',
-      });
-      // 抬起鼠标 判断是否重合
-      if (e.type === 'mouseup') {
-        this.$mask!.style.display = 'none';
-        this.$mask!.className = '';
-        if (this.options.isAllowOut) {
-          const dragId = this.checkPoolsCoincide({
-            top: e.pageY,
-            left: e.pageX,
-            width: 0,
-            height: 0,
-          });
-          if (dragId && this.eventFns.drag) {
-            this.eventFns.drag({
-              id: dragId,
-              index: this.dragIndex,
-            });
-          }
-        }
-        document.body.removeChild(this.$current!);
-      } else if (e.type === 'mousemove') {
-        this.checkChildrenSort({
-          ...position,
+      this.$mask.style.display = 'block';
+      this.$mask.className = this.options.direction!;
+      this.$current = this.el;
+      this.isResize = true;
+
+      this.updateElementInfo(e);
+    }
+  }
+  // 处理拖拽
+  private handleDraggable(e: MouseEvent) {
+    // 拖动元素
+    if (e.type === 'mousedown') {
+      let target = this.el;
+      if (this.options.isChildren) {
+        target = e.target as HTMLElement;
+      }
+      // 记录点击时信息
+      this.$current = target.cloneNode(true) as HTMLElement;
+      this.$current.classList.add('x-draggable-clone');
+      this.$mask!.style.display = 'block';
+      if (this.options.isSort) {
+        this.dragIndex = parseInt(this.$current.style.order || '-1');
+      } else {
+        this.dragIndex = parseInt(this.$current.getAttribute('drag-index') || '-1');
+      }
+      document.body.appendChild(this.$current);
+      this.updateElementInfo(e);
+    }
+    const position = this.computeElementPosition(e);
+
+    this.reanderCurrentStyle({
+      top: position.top + 'px',
+      left: position.left + 'px',
+    });
+    // 抬起鼠标 判断是否重合
+    if (e.type === 'mouseup') {
+      this.$mask!.style.display = 'none';
+      this.$mask!.className = '';
+      if (this.options.isAllowOut) {
+        const dragId = this.checkPoolsCoincide({
+          top: e.pageY,
+          left: e.pageX,
           width: 0,
           height: 0,
         });
+        if (dragId && this.eventFns.drag) {
+          this.eventFns.drag({
+            id: dragId,
+            index: this.dragIndex,
+          });
+        }
       }
+      document.body.removeChild(this.$current!);
+    } else if (e.type === 'mousemove') {
+      this.checkChildrenSort({
+        ...position,
+        width: 0,
+        height: 0,
+      });
     }
   }
   // 外部事件监听
@@ -304,10 +314,11 @@ export default class XDraggable {
         currentTop: this.$current.offsetTop,
         currentLeft: this.$current.offsetLeft,
         currentWidth: this.$current.offsetWidth,
-        currentHeight: this.$current.offsetHeight
+        currentHeight: this.$current.offsetHeight,
       });
     }
     this.info = info;
+    
     return info;
   }
   // 更新子元素信息
@@ -363,25 +374,25 @@ export default class XDraggable {
     let size = 0;
     const direction = this.options.direction;
     if (direction === 'right') {
-      const x = point.x - this.info.offsetLeft;
+      const x = point.x - (this.info.currentLeft + this.info.parentWidth);
       size = this.info.parentWidth + x;
     } else if (direction === 'left') {
-      const x = this.info.offsetLeft - point.x;
+      const x = this.info.currentLeft - point.x;
       size = this.info.parentWidth + x;
     } else if (direction === 'top') {
-      const y = this.info.offsetTop - point.y;
+      const y = this.info.currentTop - point.y;
       size = this.info.parentHeight + y;
     } else if (direction === 'bottom') {
-      const y = point.y - this.info.offsetTop;
+      const y = point.y - (this.info.currentTop + this.info.parentHeight);
       size = this.info.parentHeight + y;
     }
-    this.resizeElementSize(size);
+    this.setElementSize(size);
     if (isSave) {
-      window.localStorage.setItem('drag-' + this.options.resizeId, size + '');
+      window.localStorage.setItem('drag-' + this.options.resizeId + '-size', size + '');
     }
   }
   // 设置当前元素大小
-  private resizeElementSize(size: number) {
+  private setElementSize(size: number) {
     const direction = this.options.direction;
     if (direction === 'left' || direction === 'right') {
       this.el.style.width = size + 'px';
